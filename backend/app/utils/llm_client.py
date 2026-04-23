@@ -27,9 +27,18 @@ class LLMClient:
         if not self.api_key:
             raise ValueError("LLM_API_KEY 未配置")
         
+        # OpenRouter requires custom headers
+        headers = {}
+        if "openrouter.io" in (self.base_url or ""):
+            headers = {
+                "HTTP-Referer": "https://mirofish.ai",
+                "X-Title": "MiroFish",
+            }
+        
         self.client = OpenAI(
             api_key=self.api_key,
-            base_url=self.base_url
+            base_url=self.base_url,
+            default_headers=headers if headers else None
         )
     
     def chat(
