@@ -6,7 +6,7 @@
 import os
 import traceback
 import threading
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 
 from . import graph_bp
 from ..config import Config
@@ -214,12 +214,19 @@ def generate_ontology():
         
         # 生成本体
         logger.info("调用 LLM 生成本体定义...")
-        generator = OntologyGenerator()
-        ontology = generator.generate(
-            document_texts=document_texts,
-            simulation_requirement=simulation_requirement,
-            additional_context=additional_context if additional_context else None
-        )
+        try:
+            generator = OntologyGenerator()
+            ontology = generator.generate(
+                document_texts=document_texts,
+                simulation_requirement=simulation_requirement,
+                additional_context=additional_context if additional_context else None
+            )
+        except ValueError as e:
+            logger.error(f"Ontology generation failed (LLM error): {str(e)}")
+            raise
+        except Exception as e:
+            logger.error(f"Ontology generation failed (unexpected error): {str(e)}", exc_info=True)
+            raise
         
         # 保存本体到项目
         entity_count = len(ontology.get("entity_types", []))
@@ -247,11 +254,22 @@ def generate_ontology():
             }
         })
         
-    except Exception as e:
+    except ValueError as e:
+        # Expected validation or API errors
+        error_msg = str(e)
+        logger.warning(f"Ontology generation validation error: {error_msg}")
         return jsonify({
             "success": False,
-            "error": str(e),
-            "traceback": traceback.format_exc()
+            "error": error_msg
+        }), 400
+    except Exception as e:
+        # Unexpected errors
+        error_msg = str(e)
+        logger.error(f"Ontology generation failed with exception: {error_msg}", exc_info=True)
+        return jsonify({
+            "success": False,
+            "error": f"Ontology generation failed. Please check the server logs for details.",
+            "details": error_msg if current_app.debug else None
         }), 500
 
 

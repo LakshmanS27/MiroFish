@@ -214,13 +214,20 @@ class OntologyGenerator:
         ]
         
         # 调用LLM
-        result = self.llm_client.chat_json(
-            messages=messages,
-            temperature=0.3,
-            max_tokens=4096
-        )
+        logger.info(f"Calling LLM to generate ontology: model={self.llm_client.model}, system_prompt_len={len(system_prompt)}, user_msg_len={len(user_message)}")
+        try:
+            result = self.llm_client.chat_json(
+                messages=messages,
+                temperature=0.3,
+                max_tokens=4096
+            )
+            logger.info("Ontology generation LLM call succeeded")
+        except ValueError as e:
+            logger.error(f"LLM call failed during ontology generation: {str(e)}")
+            raise
         
         # 验证和后处理
+        logger.debug("Starting ontology validation and processing")
         result = self._validate_and_process(result)
         
         return result
